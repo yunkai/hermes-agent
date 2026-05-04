@@ -535,7 +535,16 @@ class QQAdapter(BasePlatformAdapter):
                         RATE_LIMIT_DELAY,
                     )
                     if backoff_idx >= MAX_RECONNECT_ATTEMPTS:
-                        return
+                        logger.warning(
+                            "[%s] Max reconnect attempts reached (rate-limited) — "
+                            "cooling down 10min before fresh start",
+                            self._log_tag,
+                        )
+                        await asyncio.sleep(600)
+                        backoff_idx = 0
+                        quick_disconnect_count = 0
+                        self._exc_disconnect_count = 0
+                        continue
                     await asyncio.sleep(RATE_LIMIT_DELAY)
                     if await self._reconnect(backoff_idx):
                         backoff_idx = 0
@@ -587,8 +596,16 @@ class QQAdapter(BasePlatformAdapter):
                 else:
                     backoff_idx += 1
                     if backoff_idx >= MAX_RECONNECT_ATTEMPTS:
-                        logger.error("[%s] Max reconnect attempts reached (QQCloseError)", self._log_tag)
-                        return
+                        logger.warning(
+                            "[%s] Max reconnect attempts reached — "
+                            "cooling down 10min before fresh start",
+                            self._log_tag,
+                        )
+                        await asyncio.sleep(600)
+                        backoff_idx = 0
+                        quick_disconnect_count = 0
+                        self._exc_disconnect_count = 0
+                        continue
 
             except Exception as exc:
                 if not self._running:
@@ -647,8 +664,16 @@ class QQAdapter(BasePlatformAdapter):
 
                 # --- Backoff with upper bound ---
                 if backoff_idx >= MAX_RECONNECT_ATTEMPTS:
-                    logger.error("[%s] Max reconnect attempts reached", self._log_tag)
-                    return
+                    logger.warning(
+                        "[%s] Max reconnect attempts reached — "
+                        "cooling down 10min before fresh start",
+                        self._log_tag,
+                    )
+                    await asyncio.sleep(600)
+                    backoff_idx = 0
+                    quick_disconnect_count = 0
+                    self._exc_disconnect_count = 0
+                    continue
 
                 if await self._reconnect(backoff_idx):
                     backoff_idx = 0
@@ -816,7 +841,7 @@ class QQAdapter(BasePlatformAdapter):
             interval_ms = d_data.get("heartbeat_interval", 30000)
             # Send heartbeats at 80% of the server interval to stay safe
             self._heartbeat_interval = interval_ms / 1000.0 * 0.8
-            logger.debug(
+            logger.info(
                 "[%s] Hello received, heartbeat_interval=%dms (sending every %.1fs)",
                 self._log_tag,
                 interval_ms,
