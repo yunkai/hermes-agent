@@ -451,6 +451,7 @@ class QQAdapter(BasePlatformAdapter):
             },
             timeout=CONNECT_TIMEOUT_SECONDS,
             proxy=ws_proxy,
+            heartbeat=20.0,  # WebSocket-level PING every 20s to prevent QQ's 60s idle timeout
         )
         logger.info("[%s] WebSocket connected to %s", self._log_tag, gateway_url)
 
