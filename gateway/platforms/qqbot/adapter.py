@@ -460,7 +460,8 @@ class QQAdapter(BasePlatformAdapter):
 
         Close code handling follows the OpenClaw qqbot reference implementation:
           4004 → invalid token, refresh and reconnect
-          4006/4007/4009 → session invalid, clear session and re-identify
+          4006/4007 → session invalid, clear session and re-identify
+          4009 → session timed out, preserve session for Resume (not invalid)
           4008 → rate limited, back off 60s
           4914 → bot offline/sandbox, stop reconnecting
           4915 → bot banned, stop reconnecting
@@ -563,11 +564,19 @@ class QQAdapter(BasePlatformAdapter):
                     self._access_token = None
                     self._token_expires_at = 0.0
 
+                # Session timed out → preserve session, will Resume on reconnect
+                # 4009 is a timeout (not invalidation) — see OpenClaw PR #65606.
+                # Resuming the session avoids a full re-identify round-trip.
+                if code == 4009:
+                    logger.info(
+                        "[%s] Session timed out (4009), preserving session for Resume",
+                        self._log_tag,
+                    )
+
                 # Session invalid → clear session, will re-identify on next Hello
                 if code in {
                         4006,
                         4007,
-                        4009,
                         4900,
                         4901,
                         4902,
